@@ -12,17 +12,30 @@ domoticz = Domoticz(BASE_URI).authorize("username", "hunter2")
 light1 = domoticz.get_device("heater") # ... by name
 light2 = domoticz.get_device(11)       # ... by ID   (idx)
 
-# Switching stuff on and off
-light1.switch(boolean)
-light2.set_level(0.5) # dim halfway
+# Accessing device information
+device.capabilities # List that may contain: "switch", "dim", "thermometer", "hygrometer"
 
-# Climate data
-pool      = domoticz.get_device("pool.thermometer")
-pool_temp = pool.get_temperature()
-print( "The pool temperature is " + domoticz.format_temperature(pool_temp) ) # using units as set up in Domoticz
-# ... or with better control of the output format:
-domoticz.format_temperature(pool_temp, ".2f") # two decimal places, default is 1
-# ... also supports humidity
-domoticz.get_device("somewhere.hygrometer").get_humidity() # returns 0.0 - 1.0
+# ... property      Possible values     Needs capability...
+device.is_on        True, False         # switch, dim
+device.dim_level    0.0 - 1.0           # dim 
+device.temperature  (any float)         # thermometer
+device.humidity     0.0 - 1.0           # hygrometer
+
+# Switching and dimming
+light1.switch(False)
+light1.switch("on")
+
+light2.dim(1.0) # full brightness
+light2.dim(0.5) # dim halfway
+
+# Utility functions
+#   format_temperature: returns a temperature in a human-readable form, using units configured in Domoticz
+#   "format" defaults to .1f, ie. one decimal
+domoticz.format_temperature(22.0)                   #   "22.0°C"
+domoticz.format_temperature(101.235, format=".2f")  # "101.24°F"
+
+# Example - Climate data
+climate      = domoticz.get_device("pool.climate_sensor")
+print( "The temperature is {}, humidity is {:.0%} " + domoticz.format_temperature(climate.temperature), climate.humidity )
 
 ```
