@@ -4,7 +4,7 @@
 from domoticz_control import Domoticz
 import os
 
-BASE_URI   = "http://127.0.0.1:8080/"
+BASE_URI   = "http://nano.robhol.net:8080/"
 AUTH_FILE  = "creds.asc"
 
 def get_domoticz():

@@ -23,8 +23,8 @@ def tsdebug(thermostat, msg, level):
         msg), level, thlevel)
 
 def boundary_debug_message(thermostat, thermometer, switch, ideal, extreme, is_low):
-    temp = thermometer.get_temperature()
-    switching = switch.is_on() != is_low
+    temp = thermometer.temperature
+    switching = switch.is_on != is_low
 
     tsdebug(thermostat,
         "<!> {temp} is {delta} {preposition} {extreme_type}, {delta_ideal} {preposition} ideal. {switch} {switch_action} switched {switch_state}.".format(
@@ -66,7 +66,7 @@ for thermostat in thermostats:
     thermometer = domoticz.get_device(thermostat["thermometer_id"])
     switch      = domoticz.get_device(thermostat["switch_id"])
 
-    temp = thermometer.get_temperature()
+    temp = thermometer.temperature
 
     min_temp = thermostat["range"][0]
     max_temp = thermostat["range"][1]

@@ -69,12 +69,13 @@ class Domoticz:
         state = self.get_device_state(identifier);
         return Device(self, state) if state else None;
 
-    def get_temperature_unit(self):
+    @property
+    def temperature_unit(self):
         unit = self.get_all_device_states()["TempSign"]
         return ("°" + unit) if unit != "K" else unit
 
     def format_temperature(self, t, tempFormat=".1f"):
-        return ("{:" + tempFormat + "}{}").format(t, self.get_temperature_unit())
+        return ("{:" + tempFormat + "}{}").format(t, self.temperature_unit)
 
 class Device:
     """Wraps a Domoticz device and provides methods to read values and change state."""
@@ -119,34 +120,45 @@ class Device:
     def readout(self):
         out = [str(self)]
         if "switch" in self.capabilities:
-            out += ["Switch status: " + ("ON" if self.is_on() else "OFF")]
+            out += ["Switch status: " + ("ON" if self.is_on else "OFF")]
         if "dim" in self.capabilities:
-            out += ["Dimmer level: {0:.0%}".format( self.get_level() )]
+            out += ["Dimmer level: {0:.0%}".format( self.dim_level )]
         if "thermometer" in self.capabilities:
-            out += ["Temperature: {0}".format( self.get_temperature() )]
+            out += ["Temperature: {0}".format( self.temperature )]
         if "hygrometer" in self.capabilities:
-            out += ["Humidity: {0:.0%}".format( self.get_humidity() )]
+            out += ["Humidity: {0:.0%}".format( self.humidity )]
 
         return '\n'.join(out);
 
     #Switch functionality
+    @property
     def is_on(self):
         self._assert_capability("switch")
         return self._get_state("Status") != "Off"
 
+    @property
+    def dim_level(self):
+        return (self._get_state("Level") / 100.0) if self.is_on else 0;
+
     def switch(self, state):
         self._assert_capability("switch")
+
+        switchcmd = None
+        if isinstance(state, str):
+            switchcmd = state.capitalize()
+            if switchcmd not in ["On", "Off"]:
+                raise ValueError("switch(state) must be a boolean value or the string 'On' or 'Off'.")
+        else:
+            switchcmd = "On" if state else "Off"
+
         self._request({
             "type": "command",
             "param": "switchlight",
             "idx": self.id,
-            "switchcmd": "On" if state else "Off",
+            "switchcmd": switchcmd,
         })
 
-    def get_level(self):
-        return (self._get_state("Level") / 100.0) if self.is_on() else 0;
-
-    def set_level(self, level):
+    def dim(self, level):
         self._assert_capability("dim")
         self._request({
             "type": "command",
@@ -157,10 +169,12 @@ class Device:
         })
 
     #Climate functionality
-    def get_temperature(self):
+    @property
+    def temperature(self):
         self._assert_capability("thermometer")
         return self._get_state("Temp")
 
-    def get_humidity(self):
+    @property
+    def humidity(self):
         self._assert_capability("hygrometer")
         return self._get_state("Humidity") / 100.0
