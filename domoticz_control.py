@@ -28,7 +28,7 @@ class Domoticz:
 
     def authorize(self, username, password):
         """Sets the Authorization HTTP header based on the given username and password"""
-        return self.authorize_header( base64.b64encode("{}:{}".format(username, password)) )
+        return self.authorize_header( base64.b64encode("{}:{}".format(username, password).encode('utf-8')).decode('utf-8') )
 
     def preload(self):
         self.get_all_device_states()
