@@ -37,8 +37,8 @@ domoticz.format_temperature(101.235, ".2f") # "101.24°F"
 # Example - Climate data
 climate = domoticz.get_device("pool.climate_sensor")
 
-print( "The temperature is {}, humidity is {:.0%} ", 
+print( "The temperature is {}, humidity is {:.0%} ".format(
   domoticz.format_temperature(climate.temperature), 
-  climate.humidity )
+  climate.humidity ))
 
 ```
