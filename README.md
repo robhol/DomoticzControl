@@ -9,8 +9,8 @@ Note that this is an early draft; syntax will probably change, and hopefully for
 domoticz = Domoticz(BASE_URI).authorize("username", "hunter2")
 
 # Accessing devices...
-light1 = domoticz.get_device("heater") # ... by name
-light2 = domoticz.get_device(11)       # ... by ID   (idx)
+device = domoticz.get_device("heater") # ... by name
+device = domoticz.get_device(11)       # ... by ID   (idx)
 
 # Accessing device information
 device.capabilities # List that may contain: "switch", "dim", "thermometer", "hygrometer"
@@ -30,12 +30,15 @@ light2.dim(0.5) # dim halfway
 
 # Utility functions
 #   format_temperature: returns a temperature in a human-readable form, using units configured in Domoticz
-#   "format" defaults to .1f, ie. one decimal
-domoticz.format_temperature(22.0)                   #   "22.0°C"
-domoticz.format_temperature(101.235, format=".2f")  # "101.24°F"
+#   format defaults to .1f, ie. one decimal
+domoticz.format_temperature(22.0)           #   "22.0°C"
+domoticz.format_temperature(101.235, ".2f") # "101.24°F"
 
 # Example - Climate data
-climate      = domoticz.get_device("pool.climate_sensor")
-print( "The temperature is {}, humidity is {:.0%} " + domoticz.format_temperature(climate.temperature), climate.humidity )
+climate = domoticz.get_device("pool.climate_sensor")
+
+print( "The temperature is {}, humidity is {:.0%} ", 
+  domoticz.format_temperature(climate.temperature), 
+  climate.humidity )
 
 ```
