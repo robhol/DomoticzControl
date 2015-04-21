@@ -12,14 +12,11 @@ class Domoticz:
     def __init__(self, baseUri):
         self._baseUri = baseUri
         self._auth = None
-        self._cachedDevices = None
+        self._cache = DomoticzCache(self)
 
     def _validate_permission(self):
         if self._auth == None:
             raise PermissionError("Unauthorized. Call authorize_header(header)/authorize(user, pass)")
-
-    def invalidate_cache(self):
-        self._cachedDevices = None
 
     def authorize_header(self, header):
         """Sets the base64 encoded Basic Authorization HTTP header value"""
@@ -37,33 +34,19 @@ class Domoticz:
     def request(self, qd):
         """Sends a direct request to Domoticz with the GET data in the dictionary qd"""
         self._validate_permission()
-        url = self._baseUri + "json.htm?" + urllib.parse.urlencode(qd)
+        querystring = urllib.parse.urlencode(qd)
+        url = self._baseUri + "json.htm?" + querystring
         req = urllib.request.Request(url, headers={"Authorization": "Basic " + self._auth})
 
         return json.loads( urllib.request.urlopen(req).read().decode('utf-8') )
 
     def get_all_device_states(self):
         """Gets a list of all devices and device-related information. Device array in get_all_device_states()['result']"""
-        if not self._cachedDevices:
-            self._cachedDevices = self.request({
-                "type": "devices", 
-                "filter": "all"
-            })
-
-        return self._cachedDevices
+        return self._cache.get_all_device_states()
 
     def get_device_state(self, identifier):
         """Gets the state of the device with the given id (if identifier is an integer) or name"""
-        idAttrib = 'idx' if isinstance(identifier, int) else 'Name'
-
-        identifier = str(identifier) # idx as returned by domoticz is... for some reason... a string
-
-        devices = self.get_all_device_states().get("result")
-        for d in devices:
-            if d[idAttrib] == identifier:
-                return d
-
-        return None
+        return self._cache.get_device_state(identifier)
 
     def get_device(self, identifier):
         state = self.get_device_state(identifier);
@@ -76,6 +59,73 @@ class Domoticz:
 
     def format_temperature(self, t, tempFormat=".1f"):
         return ("{:" + tempFormat + "}{}").format(t, self.temperature_unit)
+
+    def invalidate(self):
+        self._cache.invalidate()
+
+    def invalidate_device(self, identifier):
+        self._cache.invalidate_device(identifier)
+
+class DomoticzCache:
+    """Handles requests and caching"""
+    def __init__(self, domoticz):
+        self.data = None;
+        self.is_loaded = False;
+
+        self._invalidatedDevices = []
+        self._domoticz = domoticz
+
+    def _patch_device_result(self, index, newdata):
+        for k, v in newdata.items():
+            if k != "result":
+                self.data[k] = v
+
+        self.data["result"][index] = newdata["result"][0]
+
+    def _request_single_device_state(self, idx):
+        full_state = self._domoticz.request({
+                "type": "devices", 
+                "rid": str(idx)
+            })
+        return full_state["result"][0], full_state
+
+    def _get_device_state_and_listindex(self, identifier):
+        devices = self.get_all_device_states()["result"]
+        idAttrib = 'idx' if isinstance(identifier, int) else 'Name'
+        identifier = str(identifier) # idx as returned by domoticz is... for some reason... a string
+        for i, d in enumerate(devices):
+            if d[idAttrib] == identifier:
+                return d, i
+        return None, None
+
+    def get_all_device_states(self):
+        if not self.data:
+            self._invalidatedDevices = []
+            self.data = self._domoticz.request({
+                "type": "devices"
+            })
+
+        return self.data
+
+    def get_device_state(self, identifier):
+        """Gets the state of the device with the given id (if identifier is an integer) or name"""
+
+        state, list_index = self._get_device_state_and_listindex(identifier)
+        idx = int(state['idx'])
+
+        if idx in self._invalidatedDevices:
+            state, full_state = self._request_single_device_state(idx)
+            self._patch_device_result(list_index, full_state)
+            self._invalidatedDevices.remove(idx)
+
+        return state
+
+    def invalidate_device(self, identifier):
+
+        self._invalidatedDevices.append(int( self.get_device_state(identifier)['idx'] ))
+
+    def invalidate(self):
+        self.data = None
 
 class Device:
     """Wraps a Domoticz device and provides methods to read values and change state."""
@@ -151,6 +201,8 @@ class Device:
         else:
             switchcmd = "On" if state else "Off"
 
+        self._domoticz.invalidate_device(self.id)
+
         self._request({
             "type": "command",
             "param": "switchlight",
@@ -160,6 +212,7 @@ class Device:
 
     def dim(self, level):
         self._assert_capability("dim")
+        self._domoticz.invalidate_device(self.id)
         self._request({
             "type": "command",
             "param": "switchlight",
